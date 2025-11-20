@@ -27,7 +27,7 @@ export const sendToken = (res, user, code, message) => {
 };
 
 export const cookieOption = {
-    domain:".axto.ai",
+    domain:".xstreams.in",
     path: "/",
     httpOnly: true,
     secure: true,
