@@ -1,0 +1,717 @@
+paths:
+  /api/v1/audit:
+    post:
+      tags:
+        - Audit
+      summary: Create a new website audit
+      description: |
+        Creates a new audit for a website URL and returns audit results including performance, accessibility, and SEO scores with detailed issues.
+
+        **Audit Types:**
+        - **single** (default): Audits only the specified URL - returns JSON data, use GET /audit/{id} for PDF
+        - **whole-site**: Crawls and audits multiple pages - DEPRECATED, use POST /audit/multi instead
+
+        **Features:**
+        - Performance, Accessibility, and SEO scoring
+        - Detailed issue detection with line numbers and WCAG criteria
+        - Site-wide statistics for whole-site audits
+        - Best/worst performing page identification
+        - Comprehensive error handling and retry logic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - websiteUrl
+              properties:
+                websiteUrl:
+                  type: string
+                  format: uri
+                  description: The URL of the website to audit
+                  example: "https://example.com"
+                auditType:
+                  type: string
+                  enum: ["single", "whole-site"]
+                  default: "single"
+                  description: Type of audit to perform - single page or whole site
+                  example: "single"
+                maxPages:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  default: 50
+                  description: Maximum number of pages to crawl (only for whole-site audits)
+                  example: 50
+            examples:
+              single_page:
+                summary: Single page audit (default)
+                value:
+                  websiteUrl: "https://example.com"
+                  auditType: "single"
+              whole_site:
+                summary: Whole site audit
+                value:
+                  websiteUrl: "https://example.com"
+                  auditType: "whole-site"
+                  maxPages: 25
+              basic_legacy:
+                summary: Basic audit (legacy - defaults to single)
+                value:
+                  websiteUrl: "https://example.com"
+      responses:
+        "201":
+          description: Audit created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    oneOf:
+                      - $ref: "#/components/schemas/SinglePageAuditResponse"
+                      - $ref: "#/components/schemas/WholeSiteAuditResponse"
+                    discriminator:
+                      propertyName: auditType
+              examples:
+                single_page_response:
+                  summary: Single page audit response
+                  value:
+                    success: true
+                    data:
+                      auditId: "60f7b3b3b3b3b3b3b3b3b3b3"
+                      auditType: "single"
+                      url: "https://example.com"
+                      scores:
+                        performance: 85
+                        accessibility: 92
+                        seo: 78
+                      totalIssues: 12
+                      timestamp: "2024-01-15T10:30:00.000Z"
+                      summary:
+                        critical: 2
+                        moderate: 5
+                        minor: 5
+                whole_site_response:
+                  summary: Whole site audit response
+                  value:
+                    success: true
+                    data:
+                      auditId: "60f7b3b3b3b3b3b3b3b3b3b4"
+                      auditType: "whole-site"
+                      summary:
+                        averageScores:
+                          performance: 82
+                          accessibility: 89
+                          seo: 85
+                        totalIssues:
+                          critical: 8
+                          moderate: 25
+                          minor: 35
+                        pageCount: 15
+                        bestPerformingPage:
+                          url: "https://example.com/"
+                          scores:
+                            performance: 95
+                            accessibility: 98
+                            seo: 92
+                        worstPerformingPage:
+                          url: "https://example.com/heavy-page"
+                          scores:
+                            performance: 65
+                            accessibility: 72
+                            seo: 68
+                      metadata:
+                        startUrl: "https://example.com"
+                        totalPagesDiscovered: 18
+                        totalPagesAudited: 15
+                        totalErrors: 3
+                        auditTimestamp: "2024-01-15T10:30:00.000Z"
+                      totalPages: 15
+                      errors: 3
+        "400":
+          description: Bad request - Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid URL format"
+                  message:
+                    type: string
+                    example: "Please provide a valid URL (e.g., https://example.com)"
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        msg:
+                          type: string
+                        param:
+                          type: string
+                        location:
+                          type: string
+              examples:
+                invalid_url:
+                  summary: Invalid URL format
+                  value:
+                    error: "Invalid URL format"
+                    message: "Please provide a valid URL (e.g., https://example.com)"
+                    errors:
+                      - msg: "Invalid website URL"
+                        param: "websiteUrl"
+                        location: "body"
+                invalid_audit_type:
+                  summary: Invalid audit type
+                  value:
+                    error: "Invalid input"
+                    message: "Audit type must be either 'single' or 'whole-site'"
+                    errors:
+                      - msg: "Audit type must be either 'single' or 'whole-site'"
+                        param: "auditType"
+                        location: "body"
+                invalid_max_pages:
+                  summary: Invalid max pages value
+                  value:
+                    error: "Invalid input"
+                    message: "Max pages must be a number between 1 and 100"
+                    errors:
+                      - msg: "Max pages must be a number between 1 and 100"
+                        param: "maxPages"
+                        location: "body"
+        "401":
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Authentication required"
+        "500":
+          description: Internal server error during PDF generation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Failed to generate PDF report"
+
+  /api/v1/audit/multi:
+    post:
+      tags:
+        - Audit
+      summary: Create a new multi-page website audit
+      description: |
+        Creates a comprehensive multi-page audit for a website by crawling and auditing multiple pages.
+
+        **Features:**
+        - Crawls website to discover internal pages (up to maxPages limit)
+        - Audits each discovered page for performance, accessibility, and SEO
+        - Provides site-wide statistics and analysis
+        - Identifies best and worst performing pages
+        - Generates comprehensive PDF reports
+        - Includes error tracking for failed pages
+
+        **Note:** This endpoint requires a paid subscription plan.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - websiteUrl
+              properties:
+                websiteUrl:
+                  type: string
+                  format: uri
+                  description: The URL of the website to audit
+                  example: "https://example.com"
+                maxPages:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  default: 50
+                  description: Maximum number of pages to crawl and audit
+                  example: 25
+            examples:
+              basic_multi_audit:
+                summary: Basic multi-page audit
+                value:
+                  websiteUrl: "https://example.com"
+                  maxPages: 50
+              limited_multi_audit:
+                summary: Limited pages audit
+                value:
+                  websiteUrl: "https://example.com"
+                  maxPages: 10
+      responses:
+        "201":
+          description: Multi-page audit created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/WholeSiteAuditResponse"
+              examples:
+                multi_page_response:
+                  summary: Multi-page audit response
+                  value:
+                    success: true
+                    data:
+                      auditId: "60f7b3b3b3b3b3b3b3b3b3b4"
+                      auditType: "whole-site"
+                      summary:
+                        averageScores:
+                          performance: 82
+                          accessibility: 89
+                          seo: 85
+                        totalIssues:
+                          critical: 8
+                          moderate: 25
+                          minor: 35
+                        pageCount: 15
+                        bestPerformingPage:
+                          url: "https://example.com/"
+                          scores:
+                            performance: 95
+                            accessibility: 98
+                            seo: 92
+                        worstPerformingPage:
+                          url: "https://example.com/heavy-page"
+                          scores:
+                            performance: 65
+                            accessibility: 72
+                            seo: 68
+                      metadata:
+                        startUrl: "https://example.com"
+                        totalPagesDiscovered: 18
+                        totalPagesAudited: 15
+                        totalErrors: 3
+                        auditTimestamp: "2024-01-15T10:30:00.000Z"
+                      totalPages: 15
+                      errors: 3
+        "400":
+          description: Bad request - Invalid input or subscription limitation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  message:
+                    type: string
+              examples:
+                subscription_required:
+                  summary: Subscription required
+                  value:
+                    error: "Upgrade to a paid plan to perform multi-page audits"
+                    message: "Multi-page audits require a paid subscription"
+                invalid_max_pages:
+                  summary: Invalid max pages
+                  value:
+                    error: "Invalid input"
+                    message: "Max pages must be between 1 and 100"
+        "401":
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Authentication required"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Failed to audit website: Connection timeout"
+
+  /api/v1/audit/multi/{id}:
+    get:
+      tags:
+        - Audit
+      summary: Download multi-page audit PDF report
+      description: |
+        Downloads a comprehensive PDF report for a multi-page website audit.
+
+        **PDF Report Contents:**
+        - Executive Summary with site-wide statistics
+        - Site-wide performance comparison across all pages
+        - Pages overview table showing scores for each page
+        - Detailed issues organized by page (clearly showing which page each issue belongs to)
+        - Best and worst performing pages analysis
+        - Priority recommendations for site-wide improvements
+        - Failed pages appendix (if any pages failed to audit)
+
+        **Report Features:**
+        - Professional formatting with tables and charts
+        - Color-coded issue severity indicators
+        - Page-specific issue identification
+        - WCAG compliance criteria for accessibility issues
+        - Actionable recommendations for improvements
+      parameters:
+        - in: path
+          name: id
+          required: true
+          description: The unique identifier of the multi-page audit report
+          schema:
+            type: string
+            example: "60f7b3b3b3b3b3b3b3b3b3b4"
+      responses:
+        "200":
+          description: PDF report generated and downloaded successfully
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+                description: Multi-page accessibility audit report in PDF format
+          headers:
+            Content-Disposition:
+              description: Specifies the filename for download
+              schema:
+                type: string
+                example: 'attachment; filename="multi-page-accessibility-report-example-com-2024-01-15-60f7b3b3.pdf"'
+            Content-Type:
+              description: MIME type of the response
+              schema:
+                type: string
+                example: "application/pdf"
+            Content-Length:
+              description: Size of the PDF file in bytes
+              schema:
+                type: integer
+                example: 245760
+        "404":
+          description: Multi-page audit report not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Report not found"
+                  message:
+                    type: string
+                    example: "The requested audit report could not be found or may have expired"
+        "401":
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Authentication required"
+        "500":
+          description: Internal server error during PDF generation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Failed to generate PDF report"
+
+  /api/v1/audit/{id}:
+    get:
+      tags:
+        - Audit
+      summary: Download single-page audit PDF report
+      description: |
+        Downloads a comprehensive PDF report for a single-page website audit.
+
+        **PDF Report Contents:**
+        - Executive Summary with audit overview
+        - Audit scores for Performance, Accessibility, and SEO
+        - Detailed issues with line numbers and WCAG criteria
+        - Element-specific issue identification
+        - Comprehensive statistics and recommendations
+
+        **Report Features:**
+        - Professional formatting with tables and charts
+        - Color-coded issue severity indicators
+        - WCAG compliance criteria for accessibility issues
+        - Line number references for easier debugging
+        - Actionable recommendations for improvements
+      parameters:
+        - in: path
+          name: id
+          required: true
+          description: The unique identifier of the audit report
+          schema:
+            type: string
+            example: "60f7b3b3b3b3b3b3b3b3b3b3"
+      responses:
+        "200":
+          description: PDF report generated and downloaded successfully
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+                description: Single-page accessibility audit report in PDF format
+          headers:
+            Content-Disposition:
+              description: Specifies the filename for download
+              schema:
+                type: string
+                example: 'attachment; filename="accessibility-report-2024-01-15-60f7b3b3.pdf"'
+            Content-Type:
+              description: MIME type of the response
+              schema:
+                type: string
+                example: "application/pdf"
+            Content-Length:
+              description: Size of the PDF file in bytes
+              schema:
+                type: integer
+                example: 125440
+        "404":
+          description: Audit report not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Report not found"
+                  message:
+                    type: string
+                    example: "The requested audit report could not be found or may have expired"
+        "401":
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Authentication required"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal server error"
+
+components:
+  schemas:
+    AuditRequest:
+      type: object
+      required:
+        - websiteUrl
+      properties:
+        websiteUrl:
+          type: string
+          format: uri
+          description: The URL of the website to audit
+          example: "https://example.com"
+        auditType:
+          type: string
+          enum: ["single", "whole-site"]
+          default: "single"
+          description: Type of audit to perform
+        maxPages:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
+          description: Maximum number of pages to crawl (whole-site only)
+
+    SinglePageAuditResponse:
+      type: object
+      properties:
+        auditId:
+          type: string
+          description: Unique identifier for the audit report
+          example: "60f7b3b3b3b3b3b3b3b3b3b3"
+        auditType:
+          type: string
+          enum: ["single"]
+          example: "single"
+        url:
+          type: string
+          description: The audited URL
+          example: "https://example.com"
+        scores:
+          $ref: "#/components/schemas/AuditScores"
+        totalIssues:
+          type: integer
+          description: Total number of issues found
+          example: 12
+        timestamp:
+          type: string
+          format: date-time
+          description: When the audit was performed
+        summary:
+          $ref: "#/components/schemas/IssueSummary"
+        auditResult:
+          type: object
+          description: Complete audit results with detailed issues
+
+    WholeSiteAuditResponse:
+      type: object
+      properties:
+        auditId:
+          type: string
+          description: Unique identifier for the audit report
+          example: "60f7b3b3b3b3b3b3b3b3b3b3"
+        auditType:
+          type: string
+          enum: ["whole-site"]
+          example: "whole-site"
+        summary:
+          $ref: "#/components/schemas/SiteSummary"
+        metadata:
+          $ref: "#/components/schemas/AuditMetadata"
+        totalPages:
+          type: integer
+          description: Total number of pages audited
+          example: 25
+        errors:
+          type: integer
+          description: Number of pages that failed to audit
+          example: 2
+        auditResult:
+          type: object
+          description: Complete audit results for all pages
+
+    SiteSummary:
+      type: object
+      properties:
+        averageScores:
+          $ref: "#/components/schemas/AuditScores"
+        totalIssues:
+          $ref: "#/components/schemas/IssueSummary"
+        pageCount:
+          type: integer
+          example: 25
+        bestPerformingPage:
+          type: object
+          properties:
+            url:
+              type: string
+              example: "https://example.com/best-page"
+            scores:
+              $ref: "#/components/schemas/AuditScores"
+        worstPerformingPage:
+          type: object
+          properties:
+            url:
+              type: string
+              example: "https://example.com/needs-work"
+            scores:
+              $ref: "#/components/schemas/AuditScores"
+
+    AuditMetadata:
+      type: object
+      properties:
+        startUrl:
+          type: string
+          example: "https://example.com"
+        totalPagesDiscovered:
+          type: integer
+          example: 30
+        totalPagesAudited:
+          type: integer
+          example: 25
+        totalErrors:
+          type: integer
+          example: 2
+        auditTimestamp:
+          type: string
+          format: date-time
+        options:
+          type: object
+          properties:
+            maxPages:
+              type: integer
+            saveToFile:
+              type: boolean
+
+    AuditScores:
+      type: object
+      properties:
+        performance:
+          type: number
+          minimum: 0
+          maximum: 100
+          example: 85
+        accessibility:
+          type: number
+          minimum: 0
+          maximum: 100
+          example: 92
+        seo:
+          type: number
+          minimum: 0
+          maximum: 100
+          example: 78
+
+    IssueSummary:
+      type: object
+      properties:
+        critical:
+          type: integer
+          example: 2
+        moderate:
+          type: integer
+          example: 5
+        minor:
+          type: integer
+          example: 8
+
+    AuditIssue:
+      type: object
+      properties:
+        impact:
+          type: string
+          enum: ["Critical", "Moderate", "Minor"]
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+          enum: ["Performance", "Accessibility", "SEO"]
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string

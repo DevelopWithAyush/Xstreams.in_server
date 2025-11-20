@@ -1,0 +1,118 @@
+paths:
+  /api/v1/widget/register:
+    post:
+      tags:
+        - Widget
+      summary: Register a site for widget integration
+      description: Register a website URL to get a unique siteId for widget integration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - url
+              properties:
+                url:
+                  type: string
+                  format: uri
+                  description: The website URL to register
+                  example: "https://example.com"
+      responses:
+        200:
+          description: Site already registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  siteId:
+                    type: string
+                    description: Unique identifier for the registered site
+                    example: "123e4567-e89b-12d3-a456-426614174000"
+                  message:
+                    type: string
+                    example: "Site already registered"
+        201:
+          description: Site registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  siteId:
+                    type: string
+                    description: Unique identifier for the newly registered site
+                    example: "123e4567-e89b-12d3-a456-426614174000"
+                  message:
+                    type: string
+                    example: "Site registered successfully"
+        400:
+          description: Bad request - Invalid URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Invalid URL"
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Internal server error"
+
+components:
+  schemas:
+    WidgetRegisterRequest:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+          description: The website URL to register for widget integration
+          example: "https://example.com"
+
+    WidgetRegisterResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the operation was successful
+        siteId:
+          type: string
+          description: Unique identifier for the registered site
+        message:
+          type: string
+          description: Response message
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          description: Error message

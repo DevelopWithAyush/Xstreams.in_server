@@ -1,0 +1,280 @@
+openapi: 3.0.0
+info:
+  title: Blog API
+  description: Blog routes for reading blog posts
+  version: 1.0.0
+
+paths:
+  /api/v1/blogs:
+    get:
+      tags:
+        - Blogs
+      summary: Get all blogs with filtering and pagination
+      description: Retrieve blogs with optional filtering by status, category, tags, search, and pagination
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: Page number for pagination
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          required: false
+          description: Number of blogs per page
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+        - name: status
+          in: query
+          required: false
+          description: Filter by blog status
+          schema:
+            type: string
+            enum: [all, draft, published, archived]
+            default: all
+        - name: category
+          in: query
+          required: false
+          description: Filter by blog category
+          schema:
+            type: string
+        - name: tags
+          in: query
+          required: false
+          description: Filter by blog tags
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          description: Search in title, content, excerpt, category, and tags
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          required: false
+          description: Field to sort by
+          schema:
+            type: string
+            enum: [createdAt, updatedAt, title, views]
+            default: createdAt
+        - name: sortOrder
+          in: query
+          required: false
+          description: Sort order
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        "200":
+          description: Blogs retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  blogs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BlogSummary"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "400":
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/blogs/{slug}:
+    get:
+      tags:
+        - Blogs
+      summary: Get blog by slug
+      description: Retrieve a single blog post by its slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          description: Blog slug
+          schema:
+            type: string
+            example: "getting-started-with-nodejs"
+      responses:
+        "200":
+          description: Blog retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  blog:
+                    $ref: "#/components/schemas/BlogComplete"
+        "404":
+          description: Blog not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    BlogSummary:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439011"
+        title:
+          type: string
+          example: "Getting Started with Node.js"
+        slug:
+          type: string
+          example: "getting-started-with-nodejs"
+        excerpt:
+          type: string
+          example: "Learn the basics of Node.js development"
+        category:
+          type: string
+          example: "programming"
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["nodejs", "javascript", "backend"]
+        status:
+          type: string
+          enum: [draft, published, archived]
+          example: "published"
+        author:
+          type: string
+          example: "John Doe"
+        featuredImage:
+          $ref: "#/components/schemas/ImageData"
+        views:
+          type: integer
+          example: 150
+        readingTime:
+          type: integer
+          description: Estimated reading time in minutes
+          example: 5
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00.000Z"
+
+    BlogComplete:
+      allOf:
+        - $ref: "#/components/schemas/BlogSummary"
+        - type: object
+          properties:
+            content:
+              type: string
+              description: Full blog content
+            contentImages:
+              type: array
+              items:
+                $ref: "#/components/schemas/ImageData"
+            seo:
+              $ref: "#/components/schemas/SEOData"
+            seoTags:
+              type: string
+              description: Generated SEO meta tags
+            structuredData:
+              type: object
+              description: JSON-LD structured data
+
+    ImageData:
+      type: object
+      properties:
+        public_id:
+          type: string
+          example: "uuid-string"
+        url:
+          type: string
+          format: uri
+          example: "https://example.com/image.jpg"
+        altText:
+          type: string
+          example: "Description of the image"
+        filename:
+          type: string
+          example: "image.jpg"
+
+    SEOData:
+      type: object
+      properties:
+        metaTitle:
+          type: string
+          example: "Getting Started with Node.js - Complete Guide"
+        metaDescription:
+          type: string
+          example: "Learn Node.js from scratch with this comprehensive guide covering installation, basic concepts, and best practices."
+        metaKeywords:
+          type: array
+          items:
+            type: string
+          example: ["nodejs", "javascript", "backend", "tutorial"]
+        canonicalUrl:
+          type: string
+          format: uri
+          example: "https://example.com/blog/getting-started-with-nodejs"
+        ogTitle:
+          type: string
+          example: "Getting Started with Node.js"
+        ogDescription:
+          type: string
+          example: "Learn the basics of Node.js development"
+        ogImage:
+          type: string
+          format: uri
+          example: "https://example.com/og-image.jpg"
+
+    Pagination:
+      type: object
+      properties:
+        currentPage:
+          type: integer
+          example: 1
+        totalPages:
+          type: integer
+          example: 10
+        totalBlogs:
+          type: integer
+          example: 95
+        hasNextPage:
+          type: boolean
+          example: true
+        hasPrevPage:
+          type: boolean
+          example: false
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "Error message"
+
+tags:
+  - name: Blogs
+    description: Blog reading operations

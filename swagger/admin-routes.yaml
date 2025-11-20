@@ -1,0 +1,1198 @@
+paths:
+  /api/v1/admin/send-otp:
+    post:
+      tags:
+        - admin auth
+      summary: Send OTP to admin email
+      description: Sends a 6-digit OTP to the admin's registered email address for authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Admin's registered email address
+                  example: ayushdubey2017@gmail.com
+      responses:
+        "200":
+          description: OTP sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "OTP sent successfully"
+        "400":
+          description: Bad Request - Invalid email or admin not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    examples:
+                      invalid_email:
+                        value: "Invalid email"
+                      admin_not_found:
+                        value: "Admin not found"
+
+  /api/v1/admin/verify-otp:
+    post:
+      tags:
+        - admin auth
+      summary: Verify OTP and login admin
+      description: Verifies the OTP sent to admin's email and logs in the admin by setting authentication cookie
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - otp
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Admin's registered email address
+                  example: ayushdubey2017@gmail.com
+                otp:
+                  type: string
+                  description: 6-digit OTP received in email
+                  example: "123456"
+                  minLength: 6
+                  maxLength: 6
+      responses:
+        "200":
+          description: Admin logged in successfully
+          headers:
+            Set-Cookie:
+              description: Authentication token cookie
+              schema:
+                type: string
+                example: token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Admin logged in successfully"
+        "400":
+          description: Bad Request - Various validation or authentication errors
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    examples:
+                      invalid_email:
+                        value: "Invalid email"
+                      invalid_otp:
+                        value: "Invalid otp"
+                      admin_not_found:
+                        value: "Admin not found"
+                      otp_mismatch:
+                        value: "Invalid OTP"
+                      otp_expired:
+                        value: "OTP expired"
+
+  /api/v1/admin/logout:
+    post:
+      tags:
+        - admin auth
+      summary: Logout admin
+      description: Logs out the admin by clearing the authentication cookie
+      security:
+        - AdminAuth: []
+      responses:
+        "200":
+          description: Admin logged out successfully
+          headers:
+            Set-Cookie:
+              description: Cleared authentication cookie
+              schema:
+                type: string
+                example: token=; HttpOnly; Secure; Max-Age=0
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Admin logged out successfully"
+        "401":
+          description: Unauthorized - Admin authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Access denied"
+
+  /api/v1/admin/me:
+    post:
+      tags:
+        - admin auth
+      summary: Get current admin details
+      description: Retrieves the details of the currently authenticated admin
+      security:
+        - AdminAuth: []
+      responses:
+        "200":
+          description: Admin details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  admin:
+                    type: object
+                    description: Admin details
+                    properties:
+                      _id:
+                        type: string
+                        example: "60d5ecb54b24a0001f647d8b"
+                      email:
+                        type: string
+                        format: email
+                        example: ayushdubey2017@gmail.com
+                      # Add other admin properties as needed
+        "401":
+          description: Unauthorized - Admin authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Access denied"
+
+  /api/v1/admin/blog-create:
+    post:
+      tags:
+        - blog section
+      summary: Create a new blog post
+      description: Creates a new blog post with file upload support, automatic SEO optimization, and slug generation
+      security:
+        - AdminAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - title
+                - content
+                - category
+              properties:
+                title:
+                  type: string
+                  minLength: 3
+                  maxLength: 100
+                  description: Blog title (3-100 characters)
+                  example: "Complete Guide to Modern Web Development"
+                content:
+                  type: string
+                  minLength: 50
+                  description: Blog content (minimum 50 characters)
+                  example: "This comprehensive guide covers everything you need to know about modern web development..."
+                excerpt:
+                  type: string
+                  maxLength: 200
+                  description: Blog excerpt (max 200 characters)
+                  example: "A comprehensive guide covering modern web development practices and technologies."
+                category:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                  description: Blog category (2-50 characters)
+                  example: "technology"
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  maxItems: 10
+                  description: Array of tags (max 10)
+                  example: ["web-development", "javascript", "react"]
+                status:
+                  type: string
+                  enum: [draft, published]
+                  default: draft
+                  description: Blog publication status
+                  example: "draft"
+                author:
+                  type: string
+                  description: Blog author name
+                  example: "Admin"
+                featuredImage:
+                  type: string
+                  format: binary
+                  description: Featured image file (JPG, PNG, WebP, max 25MB)
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  maxItems: 10
+                  description: Content images (max 10 files, 25MB each)
+                featuredImageAlt:
+                  type: string
+                  description: Alt text for featured image
+                  example: "Modern web development workspace"
+                seo:
+                  type: object
+                  description: SEO optimization data
+                  properties:
+                    metaTitle:
+                      type: string
+                      maxLength: 60
+                      example: "Complete Guide to Modern Web Development | TechBlog"
+                    metaDescription:
+                      type: string
+                      maxLength: 160
+                      example: "Learn modern web development with our comprehensive guide covering React, Node.js, and best practices."
+                    metaKeywords:
+                      type: array
+                      items:
+                        type: string
+                      example: ["web development", "react", "javascript"]
+                    focusKeyword:
+                      type: string
+                      example: "modern web development"
+      responses:
+        "201":
+          description: Blog created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Blog created successfully"
+                  blog:
+                    $ref: "#/components/schemas/BlogResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/admin/blogs:
+    get:
+      tags:
+        - blog section
+      summary: Get all blogs with filtering and pagination
+      description: Retrieves blogs with advanced filtering, search, and pagination capabilities
+      security:
+        - AdminAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          description: Number of blogs per page (1-100)
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, published, all]
+            default: all
+          description: Filter by blog status
+        - name: category
+          in: query
+          schema:
+            type: string
+          description: Filter by category
+          example: "technology"
+        - name: tags
+          in: query
+          schema:
+            type: string
+          description: Filter by tags
+          example: "javascript"
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search across title, content, excerpt, category, tags
+          example: "web development"
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, updatedAt, publishedAt, views, title]
+            default: createdAt
+          description: Sort field
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Sort order
+      responses:
+        "200":
+          description: Blogs retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  blogs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BlogListItem"
+                  pagination:
+                    $ref: "#/components/schemas/PaginationData"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+  /api/v1/admin/blog/{slug}:
+    get:
+      tags:
+        - blog section
+      summary: Get single blog by slug
+      description: Retrieves a single blog post with complete data, SEO tags, and structured data
+      security:
+        - AdminAuth: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Blog slug
+          example: "complete-guide-to-modern-web-development"
+      responses:
+        "200":
+          description: Blog retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  blog:
+                    $ref: "#/components/schemas/BlogDetailResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+
+    put:
+      tags:
+        - blog section
+      summary: Update blog post
+      description: Updates an existing blog post with optional file uploads and SEO optimization
+      security:
+        - AdminAuth: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Current blog slug
+          example: "complete-guide-to-modern-web-development"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  minLength: 3
+                  maxLength: 100
+                  description: Updated blog title
+                content:
+                  type: string
+                  minLength: 50
+                  description: Updated blog content
+                excerpt:
+                  type: string
+                  maxLength: 200
+                  description: Updated blog excerpt
+                category:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                  description: Updated blog category
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  maxItems: 10
+                  description: Updated tags array
+                status:
+                  type: string
+                  enum: [draft, published]
+                  description: Updated publication status
+                author:
+                  type: string
+                  description: Updated author name
+                featuredImage:
+                  type: string
+                  format: binary
+                  description: New featured image (replaces existing)
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  maxItems: 10
+                  description: New content images (replaces existing)
+                featuredImageAlt:
+                  type: string
+                  description: Updated alt text for featured image
+                seo:
+                  type: object
+                  description: Updated SEO data
+      responses:
+        "200":
+          description: Blog updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Blog updated successfully"
+                  blog:
+                    $ref: "#/components/schemas/BlogDetailResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+    delete:
+      tags:
+        - blog section
+      summary: Delete blog post
+      description: Permanently deletes a blog post and all associated files from S3 storage
+      security:
+        - AdminAuth: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Blog slug to delete
+          example: "complete-guide-to-modern-web-development"
+      responses:
+        "200":
+          description: Blog deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Blog deleted successfully"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/admin/blog-search:
+    get:
+      tags:
+        - blog section
+      summary: Search blogs
+      description: Performs advanced search across blog content, titles, categories, and tags
+      security:
+        - AdminAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+          description: Search query
+          example: "artificial intelligence"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+          description: Maximum number of results (1-50)
+      responses:
+        "200":
+          description: Search completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  query:
+                    type: string
+                    example: "artificial intelligence"
+                  results:
+                    type: integer
+                    example: 5
+                  blogs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BlogSearchResult"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+  /api/v1/admin/blog-categories:
+    get:
+      tags:
+        - blog section
+      summary: Get all blog categories
+      description: Retrieves all unique categories from published blogs
+      security:
+        - AdminAuth: []
+      responses:
+        "200":
+          description: Categories retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  categories:
+                    type: array
+                    items:
+                      type: string
+                    example: ["technology", "science", "business", "lifestyle"]
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+  /api/v1/admin/blog-tags:
+    get:
+      tags:
+        - blog section
+      summary: Get all blog tags
+      description: Retrieves all unique tags from published blogs
+      security:
+        - AdminAuth: []
+      responses:
+        "200":
+          description: Tags retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                    example:
+                      [
+                        "ai",
+                        "tech",
+                        "programming",
+                        "machine-learning",
+                        "web-development",
+                      ]
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+components:
+  securitySchemes:
+    AdminAuth:
+      type: apiKey
+      in: cookie
+      name: token
+      description: Admin authentication token stored in HTTP-only cookie
+
+  schemas:
+    AdminError:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Error message
+
+    AdminSuccess:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Success status
+        message:
+          type: string
+          description: Success message
+
+    BlogResponse:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "60d5ecb54b24a0001f647d8b"
+        title:
+          type: string
+          example: "Complete Guide to Modern Web Development"
+        slug:
+          type: string
+          example: "complete-guide-to-modern-web-development"
+        content:
+          type: string
+          example: "This comprehensive guide covers everything..."
+        excerpt:
+          type: string
+          example: "A comprehensive guide covering modern web development..."
+        category:
+          type: string
+          example: "technology"
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["web-development", "javascript", "react"]
+        status:
+          type: string
+          enum: [draft, published]
+          example: "draft"
+        author:
+          type: string
+          example: "Admin"
+        featuredImage:
+          $ref: "#/components/schemas/ImageData"
+        contentImages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImageData"
+        views:
+          type: number
+          example: 0
+        seo:
+          $ref: "#/components/schemas/SEOData"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00.000Z"
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2024-01-01T00:00:00.000Z"
+        readingTime:
+          type: number
+          example: 5
+        seoTags:
+          $ref: "#/components/schemas/SEOTags"
+        structuredData:
+          $ref: "#/components/schemas/StructuredData"
+
+    BlogDetailResponse:
+      allOf:
+        - $ref: "#/components/schemas/BlogResponse"
+
+    BlogListItem:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "60d5ecb54b24a0001f647d8b"
+        title:
+          type: string
+          example: "Complete Guide to Modern Web Development"
+        slug:
+          type: string
+          example: "complete-guide-to-modern-web-development"
+        excerpt:
+          type: string
+          example: "A comprehensive guide covering modern web development..."
+        category:
+          type: string
+          example: "technology"
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["web-development", "javascript", "react"]
+        status:
+          type: string
+          enum: [draft, published]
+          example: "published"
+        author:
+          type: string
+          example: "Admin"
+        featuredImage:
+          $ref: "#/components/schemas/ImageData"
+        views:
+          type: number
+          example: 150
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2024-01-01T00:00:00.000Z"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00.000Z"
+        readingTime:
+          type: number
+          example: 5
+
+    BlogSearchResult:
+      type: object
+      properties:
+        title:
+          type: string
+          example: "AI in Modern Technology"
+        slug:
+          type: string
+          example: "ai-in-modern-technology"
+        excerpt:
+          type: string
+          example: "Exploring artificial intelligence applications..."
+        category:
+          type: string
+          example: "technology"
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["ai", "tech"]
+        publishedAt:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00.000Z"
+        views:
+          type: number
+          example: 250
+        featuredImage:
+          $ref: "#/components/schemas/ImageData"
+
+    ImageData:
+      type: object
+      properties:
+        public_id:
+          type: string
+          example: "uuid-string"
+        url:
+          type: string
+          example: "https://s3-bucket-url.com/image.jpg"
+        altText:
+          type: string
+          example: "Descriptive alt text"
+        filename:
+          type: string
+          example: "original-image-name.jpg"
+
+    SEOData:
+      type: object
+      properties:
+        metaTitle:
+          type: string
+          example: "Complete Guide to Modern Web Development | TechBlog"
+        metaDescription:
+          type: string
+          example: "Learn modern web development with our comprehensive guide..."
+        metaKeywords:
+          type: array
+          items:
+            type: string
+          example: ["web development", "react", "javascript"]
+        focusKeyword:
+          type: string
+          example: "modern web development"
+        canonicalUrl:
+          type: string
+          example: "https://yourdomain.com/blog/complete-guide-to-modern-web-development"
+        robots:
+          type: object
+          properties:
+            index:
+              type: boolean
+              default: true
+            follow:
+              type: boolean
+              default: true
+            noarchive:
+              type: boolean
+              default: false
+            nosnippet:
+              type: boolean
+              default: false
+        openGraph:
+          $ref: "#/components/schemas/OpenGraphData"
+        twitter:
+          $ref: "#/components/schemas/TwitterData"
+        schema:
+          $ref: "#/components/schemas/SchemaData"
+
+    OpenGraphData:
+      type: object
+      properties:
+        title:
+          type: string
+          example: "Complete Guide to Modern Web Development"
+        description:
+          type: string
+          example: "Learn modern web development with our comprehensive guide..."
+        image:
+          type: object
+          properties:
+            url:
+              type: string
+              example: "https://s3-bucket-url.com/og-image.jpg"
+            width:
+              type: number
+              default: 1200
+            height:
+              type: number
+              default: 630
+            altText:
+              type: string
+              example: "Featured image alt text"
+        url:
+          type: string
+          example: "https://yourdomain.com/blog/complete-guide-to-modern-web-development"
+        type:
+          type: string
+          enum: [article, website, blog]
+          default: article
+        siteName:
+          type: string
+          example: "Your Site Name"
+        locale:
+          type: string
+          default: "en_US"
+        publishedTime:
+          type: string
+          format: date-time
+        modifiedTime:
+          type: string
+          format: date-time
+        section:
+          type: string
+          example: "technology"
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["web-development", "javascript"]
+
+    TwitterData:
+      type: object
+      properties:
+        card:
+          type: string
+          enum: [summary, summary_large_image, app, player]
+          default: summary_large_image
+        title:
+          type: string
+          example: "Complete Guide to Modern Web Development"
+        description:
+          type: string
+          example: "Learn modern web development practices..."
+        image:
+          type: object
+          properties:
+            url:
+              type: string
+              example: "https://s3-bucket-url.com/twitter-image.jpg"
+            altText:
+              type: string
+              example: "Twitter image alt text"
+        site:
+          type: string
+          example: "@yourhandle"
+        creator:
+          type: string
+          example: "@yourhandle"
+
+    SchemaData:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [Article, BlogPosting, NewsArticle]
+          default: BlogPosting
+        headline:
+          type: string
+          example: "Complete Guide to Modern Web Development"
+        alternativeHeadline:
+          type: string
+          example: "Everything You Need to Know About Modern Web Dev"
+        author:
+          type: object
+          properties:
+            name:
+              type: string
+              example: "Admin"
+            url:
+              type: string
+              example: "https://yourdomain.com/author/admin"
+        publisher:
+          type: object
+          properties:
+            name:
+              type: string
+              example: "Your Site Name"
+            logo:
+              type: string
+              example: "https://yourdomain.com/logo.png"
+        wordCount:
+          type: number
+          example: 1500
+
+    SEOTags:
+      type: object
+      properties:
+        title:
+          type: string
+          example: "Complete Guide to Modern Web Development | TechBlog"
+        meta:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              property:
+                type: string
+              content:
+                type: string
+        link:
+          type: array
+          items:
+            type: object
+            properties:
+              rel:
+                type: string
+              href:
+                type: string
+        script:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              innerHTML:
+                type: string
+
+    StructuredData:
+      type: object
+      properties:
+        "@context":
+          type: string
+          example: "https://schema.org"
+        "@type":
+          type: string
+          example: "BlogPosting"
+        headline:
+          type: string
+          example: "Complete Guide to Modern Web Development"
+        author:
+          type: object
+        publisher:
+          type: object
+        datePublished:
+          type: string
+          format: date-time
+        dateModified:
+          type: string
+          format: date-time
+        description:
+          type: string
+        image:
+          type: array
+          items:
+            type: object
+        mainEntityOfPage:
+          type: object
+        wordCount:
+          type: number
+        keywords:
+          type: string
+        articleSection:
+          type: string
+        url:
+          type: string
+
+    PaginationData:
+      type: object
+      properties:
+        currentPage:
+          type: integer
+          example: 1
+        totalPages:
+          type: integer
+          example: 5
+        totalBlogs:
+          type: integer
+          example: 50
+        hasNextPage:
+          type: boolean
+          example: true
+        hasPrevPage:
+          type: boolean
+          example: false
+
+  responses:
+    ValidationError:
+      description: Validation Error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              message:
+                type: string
+                example: "Title must be between 3 and 100 characters"
+              errors:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      example: "field"
+                    msg:
+                      type: string
+                      example: "Title must be between 3 and 100 characters"
+                    path:
+                      type: string
+                      example: "title"
+                    location:
+                      type: string
+                      example: "body"
+
+    UnauthorizedError:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              message:
+                type: string
+                example: "Access denied"
+
+    NotFoundError:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              message:
+                type: string
+                example: "Blog not found"
+
+    ServerError:
+      description: Server Error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              message:
+                type: string
+                example: "Error uploading files"
+              error:
+                type: string
+                example: "Detailed error message"

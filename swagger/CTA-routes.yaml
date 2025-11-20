@@ -1,0 +1,116 @@
+paths:
+  /api/v1/cta/create:
+    post:
+      tags:
+        - CTA
+      summary: Create a new Call-to-Action submission
+      description: Submits a call-to-action form with email and phone number, and sends a notification email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - number
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Valid email address of the user
+                  example: "user@example.com"
+                number:
+                  type: string
+                  description: Phone number of the user
+                  example: "+1234567890"
+      responses:
+        "200":
+          description: CTA submission successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "CTA created successfully"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                        value:
+                          type: string
+                        msg:
+                          type: string
+                        path:
+                          type: string
+                        location:
+                          type: string
+                    example:
+                      - type: "field"
+                        value: "invalid-email"
+                        msg: "Invalid email address"
+                        path: "email"
+                        location: "body"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal server error"
+
+components:
+  schemas:
+    CTARequest:
+      type: object
+      required:
+        - email
+        - number
+      properties:
+        email:
+          type: string
+          format: email
+          description: Valid email address
+        number:
+          type: string
+          description: Phone number
+
+    CTAResponse:
+      type: object
+      properties:
+        message:
+          type: string
+
+    ValidationError:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              value:
+                type: string
+              msg:
+                type: string
+              path:
+                type: string
+              location:
+                type: string
